@@ -3,6 +3,7 @@
 #include <time.h>
 #include <omp.h>
 #include <string.h>
+#include <stdbool.h>
 
 // To create an array of later
 typedef struct {
@@ -21,21 +22,88 @@ void setHeaters(int width, int numHeaters,
     }
 }
 
+float calcTemp(int width, int height, float transferRate,
+        int cell, float* grid, float baseTemp, int area){
+    float result = 0;
+    int numBorderCells = 8;
+    int cellArray;
+
+    bool rightBorder =
+        cell%width == width-1;
+    // printf("Right Border: %d ", rightBorder);
+    bool leftBorder =
+        cell%width == 0;
+    // printf("Left Border: %d ", leftBorder);
+    bool upperBorder =
+        cell-width < 0;
+    // printf("Upper Border: %d ", upperBorder);
+    bool lowerBorder =     
+        cell+width > area;
+    // printf("Lower Border: %d\n", lowerBorder);
+    
+    if (!rightBorder){
+        result += grid[cell+1];
+        numBorderCells--;
+    }
+    if (!rightBorder && !upperBorder){
+        result += grid[cell-width+1];
+        numBorderCells--;
+    }
+    if (!rightBorder && !lowerBorder){
+        result += grid[cell+width+1];
+        numBorderCells--;
+    }
+
+    if (!upperBorder){
+        result += grid[cell-width];
+        numBorderCells--;
+    }
+    if (!lowerBorder){
+        result += grid[cell+width];
+        numBorderCells--;
+    }
+
+    if (!leftBorder){
+        result += grid[cell-1];
+        numBorderCells--;
+    }
+    if (!leftBorder && !upperBorder){
+        result += grid[cell-width-1];
+        numBorderCells--;
+    }
+    if (!leftBorder && !lowerBorder){
+        result += grid[cell+width-1];
+        numBorderCells--;
+    }
+    
+    result += numBorderCells * baseTemp;
+    result *= transferRate;
+    result /= 8;
+    result += grid[cell];
+    return result/2;
+} 
+
+void swap(float** array1, float** array2){
+    float* temp = *array1;
+    *array1 = *array2;
+    *array2 = temp;
+}
+
 int main(int argc, char* argv[]){
     if (argc != 9){
         printf("There appears to be some extra/missing values!\n");
         printf("Please enter 8 values.\n");   
-        printf("./heat_transfer <num_threads> <numRows> <numCols> <base temp> <transfer_rate (0.1-1)> <timesteps> <heatFileName> <outputFileName>\n");
+        printf("./heat_transfer <num_threads> <numRows> <numCols> <base temp> <transfer_rate (1-1.1)> <timesteps> <heatFileName> <outputFileName>\n");
         exit(1);
     }
 
     int num_threads = atoi(argv[1]);
     
     // num Rows
-    int length = atoi(argv[2]);
+    int height = atoi(argv[2]);
     // num Cols
     int width = atoi(argv[3]);
-    int area = length * width;
+    int area = height * width;
     float* roomGridIn = malloc(area*sizeof(float));
     float* roomGridOut = malloc(area*sizeof(float));
 
@@ -56,11 +124,11 @@ int main(int argc, char* argv[]){
     heaters* heatersMap = calloc(numHeaters, sizeof(heaters));
     for (int i = 0; i < numHeaters; i++){
         fscanf(input, "%d", &heatersMap[i].heaterRow);
-        printf("%d ", heatersMap[i].heaterRow);
+        //printf("%d ", heatersMap[i].heaterRow);
         fscanf(input, "%d", &heatersMap[i].heaterColumn);
-        printf("%d ", heatersMap[i].heaterColumn);
+        //printf("%d ", heatersMap[i].heaterColumn);
         fscanf(input, "%f", &heatersMap[i].heaterTemp);
-        printf("%f\n", heatersMap[i].heaterTemp);
+        //printf("%f\n", heatersMap[i].heaterTemp);
     }
 
     fclose(input);
@@ -68,7 +136,25 @@ int main(int argc, char* argv[]){
     for (int i = 0; i < area; i++)
         roomGridIn[i] = baseTemp;
     
-    setHeaters(width, numHeaters,
-            heatersMap, roomGridIn);
-
+    for (int step = 0; step < timesteps; step++){
+        for (int cell = 0; cell < area; cell++){
+            setHeaters(width, numHeaters, heatersMap, roomGridIn);
+            roomGridIn[cell] = calcTemp(width, height, transferRate,
+                    cell, roomGridIn, baseTemp, area);
+            //printf("Cell %d Temp: %f\n", cell, roomGridIn[cell]);
+        }
+        swap(&roomGridIn, &roomGridOut);
+    }
+    
+    for (int i = 0; i < area; i++){
+        printf("%.1f", roomGridIn[i]);
+        if (i%width == 0 && i !=0){
+            printf("\n");
+            continue;
+        }
+        printf(",");
+    }
+    
+    free(roomGridIn);
+    free(roomGridOut);
 }
