@@ -22,7 +22,7 @@ void setHeaters(int width, int numHeaters,
     }
 }
 
-float calcTemp(int width, int height, float transferRate,
+float calcTemp(int width, float transferRate,
         int cell, float* grid, float baseTemp, int area){
     float result = 0;
     int numBorderCells = 8;
@@ -123,7 +123,7 @@ int main(int argc, char* argv[]){
     int numHeaters = 0;
     fscanf(input, "%d", &numHeaters);
     // Setting up struct to hold heater data
-    heaters* heatersMap = calloc(numHeaters, sizeof(heaters));
+    heaters* heatersMap = malloc(numHeaters*sizeof(heaters));
     for (int i = 0; i < numHeaters; i++){
         fscanf(input, "%d", &heatersMap[i].heaterRow);
         fscanf(input, "%d", &heatersMap[i].heaterColumn);
@@ -139,10 +139,10 @@ int main(int argc, char* argv[]){
             printf("%d0%% done\n", percent);
             percent++;
         }
-        #pragma omp parallel for schedule(auto)
+        setHeaters(width, numHeaters, heatersMap, roomGridIn);
+        #pragma omp parallel for schedule(static)
         for(int cell = 0; cell<area; cell++){
-            setHeaters(width, numHeaters, heatersMap, roomGridIn);
-            roomGridIn[cell] = calcTemp(width, height, transferRate,
+            roomGridOut[cell] = calcTemp(width, transferRate,
                     cell, roomGridIn, baseTemp, area);
         }
         swap(&roomGridIn, &roomGridOut);
@@ -153,7 +153,7 @@ int main(int argc, char* argv[]){
     double endTime = omp_get_wtime();
     fprintf(output, "Time to Completion: %.5f\n", endTime-startTime);
     for (int i = 1; i < area+1; i++){
-        fprintf(output, "%.1f", roomGridIn[i-1]);
+        fprintf(output, "%.1f", roomGridOut[i-1]);
         if (i%width == 0 && i !=0){
             fprintf(output, "\n");
             continue;
@@ -163,4 +163,5 @@ int main(int argc, char* argv[]){
     
     free(roomGridIn);
     free(roomGridOut);
+    free(heatersMap);
 }
