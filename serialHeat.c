@@ -35,10 +35,10 @@ float calcTemp(int width, int height, float transferRate,
         cell%width == 0;
     // printf("Left Border: %d ", leftBorder);
     bool upperBorder =
-        cell-width < 0;
+        cell-width <= 0;
     // printf("Upper Border: %d ", upperBorder);
     bool lowerBorder =     
-        cell+width > area;
+        cell+width >= area;
     // printf("Lower Border: %d\n", lowerBorder);
     
     if (!rightBorder){
@@ -114,7 +114,6 @@ int main(int argc, char* argv[]){
     char* heatFilename = argv[7];
     char* outputFilename = argv[8];
     FILE* input = fopen(heatFilename, "r");
-    FILE* output = fopen(outputFilename, "w");
     
     // Grabbing the first line of the file and always
     // assuming that it is the number of heaters
@@ -146,13 +145,15 @@ int main(int argc, char* argv[]){
         swap(&roomGridIn, &roomGridOut);
     }
     
-    for (int i = 0; i < area; i++){
-        printf("%.1f", roomGridIn[i]);
+    FILE* output = fopen(outputFilename, "w");
+    
+    for (int i = 1; i < area+1; i++){
+        fprintf(output, "%.1f", roomGridIn[i-1]);
         if (i%width == 0 && i !=0){
-            printf("\n");
+            fprintf(output, "\n");
             continue;
         }
-        printf(",");
+        fprintf(output, ",");
     }
     
     free(roomGridIn);
