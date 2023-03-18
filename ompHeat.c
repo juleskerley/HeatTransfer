@@ -12,6 +12,8 @@ typedef struct {
     float heaterTemp;
 } heaters;
 
+// Very simply just taking from the heaters map and
+// Placing them into the grid
 void setHeaters(int width, int numHeaters,
         heaters* heatersMap, float* roomGrid){
     for (int i = 0; i < numHeaters; i++){
@@ -40,6 +42,14 @@ float calcTemp(int width, float transferRate,
         cell+width >= area;
     // printf("Lower Border: %d\n", lowerBorder);
     
+    // You can probably optimize this by merging some of these
+    // in a clever way:
+    // for example, we know that if right border is true,
+    // we know that the diagonal rights are also true;
+    // however, I don't have the energy.
+    // Right now, I know there are 8 places where a border can be
+    // so I check each one to see if it is a border.
+    // Simple and it works fast. 
     if (!rightBorder){
         result += grid[cell+1];
         numBorderCells--;
@@ -75,6 +85,9 @@ float calcTemp(int width, float transferRate,
         numBorderCells--;
     }
     
+    // Doing the rest of the math needed simulate heat
+    // You could one line this, but I think it looks less readable
+    // It would make it faster though, I think.
     result += numBorderCells * baseTemp;
     result *= transferRate;
     result /= 8;
@@ -131,27 +144,41 @@ int main(int argc, char* argv[]){
     }
 
     fclose(input);
+    
+    // Setting up the base temp
     for (int i = 0; i < area; i++)
         roomGridIn[i] = baseTemp;
+
+    // Adds a progress check to keep my sanity from falling apart while waiting
+    // Probably slows down the program. Whatever.
     int percent = 0;
     for (int step = 0; step < timesteps; step++){
-        if (step%tenPercent == 0){
+        // Creates a progress check.
+        // If timesteps are less than 10, it crashes, so
+        // this check keeps that from being a problem.
+        if (timesteps > 9 && step%tenPercent == 0){
             printf("%d0%% done\n", percent);
             percent++;
         }
+        // Because it is referencing the "In" grid, this only needs to be run
+        // on it once to make sure the heaters are the correct values
         setHeaters(width, numHeaters, heatersMap, roomGridIn);
+        // Static is so much faster than dynamic and whatever else I tested
         #pragma omp parallel for schedule(static)
         for(int cell = 0; cell<area; cell++){
             roomGridOut[cell] = calcTemp(width, transferRate,
                     cell, roomGridIn, baseTemp, area);
         }
+        // Making the most recent one the reference
         swap(&roomGridIn, &roomGridOut);
     }
 
     FILE* output = fopen(outputFilename, "w");
     
     double endTime = omp_get_wtime();
-    fprintf(output, "Time to Completion: %.5f\n", endTime-startTime);
+    // Prints this out of the file so that it is not breaking the csv
+    printf("Time to Completion: %.5f\n", endTime-startTime);
+    // Writing it out in CSV format.
     for (int i = 1; i < area+1; i++){
         fprintf(output, "%.1f", roomGridOut[i-1]);
         if (i%width == 0 && i !=0){
@@ -160,7 +187,8 @@ int main(int argc, char* argv[]){
         }
         fprintf(output, ",");
     }
-    
+    // Not that a memory leak is really happening, 
+    // but good practice to clean this stuff up.
     free(roomGridIn);
     free(roomGridOut);
     free(heatersMap);
